@@ -28,7 +28,7 @@ class APIService: APIProtocol {
             #if DEBUG
             self.baseURL = "http://localhost:3000/api"
             #else
-            self.baseURL = "https://aromiq.onrender.com/api"
+            self.baseURL = "https://aromiqhookah.onrender.com/api"
             #endif
         }
         print("APIService initialized with baseURL: \(baseURL)")
