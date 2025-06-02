@@ -24,6 +24,11 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Что-то пошло не так!' });
 });
 
+// Health check endpoint для Render
+app.get('/api/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
