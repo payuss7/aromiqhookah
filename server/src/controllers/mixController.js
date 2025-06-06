@@ -4,7 +4,14 @@ const Mix = require('../models/Mix');
 exports.getAllMixes = async (req, res) => {
     try {
         const mixes = await Mix.find();
-        res.json(mixes);
+        // Преобразуем _id в id для каждого микса
+        const mixesWithId = mixes.map(mix => {
+            const obj = mix.toObject();
+            obj.id = obj._id;
+            delete obj._id;
+            return obj;
+        });
+        res.json(mixesWithId);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
