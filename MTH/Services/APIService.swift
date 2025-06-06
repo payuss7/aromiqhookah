@@ -25,11 +25,7 @@ class APIService: APIProtocol {
         if let savedURL = UserDefaults.standard.string(forKey: "serverURL") {
             self.baseURL = savedURL
         } else {
-            #if DEBUG
-            self.baseURL = "http://localhost:3000/api"
-            #else
             self.baseURL = "https://aromiqhookah.onrender.com/api"
-            #endif
         }
         print("APIService initialized with baseURL: \(baseURL)")
     }

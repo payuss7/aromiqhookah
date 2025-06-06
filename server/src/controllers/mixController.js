@@ -23,6 +23,8 @@ exports.createMix = async (req, res) => {
 
 // Обновить микс
 exports.updateMix = async (req, res) => {
+    console.log('PUT /mixes/:id called');
+    console.log('Request body:', req.body);
     try {
         const mix = await Mix.findByIdAndUpdate(
             req.params.id,
@@ -30,10 +32,11 @@ exports.updateMix = async (req, res) => {
             { new: true }
         );
         if (!mix) {
-            return res.status(404).json({ message: 'Мисок не найден' });
+            return res.status(404).json({ message: 'Микс не найден' });
         }
         res.json(mix);
     } catch (error) {
+        console.error('Error updating mix:', error);
         res.status(400).json({ message: error.message });
     }
 };
