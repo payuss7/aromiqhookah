@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const mixSchema = new mongoose.Schema({
     _id: {
         type: String,
@@ -34,3 +36,5 @@ const mixSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+module.exports = mongoose.model('Mix', mixSchema);
