@@ -25,11 +25,17 @@ exports.createMix = async (req, res) => {
 exports.updateMix = async (req, res) => {
     console.log('PUT /mixes/:id called');
     console.log('Request body:', req.body);
+
+    // Если в теле запроса есть id, но нет _id — добавляем _id для совместимости с Mongoose
+    if (!req.body._id && req.body.id) {
+        req.body._id = req.body.id;
+    }
+
     try {
         const mix = await Mix.findByIdAndUpdate(
             req.params.id,
             req.body,
-            { new: true }
+            { new: true, upsert: true } // upsert: true — создаст документ, если не найден
         );
         if (!mix) {
             return res.status(404).json({ message: 'Микс не найден' });
