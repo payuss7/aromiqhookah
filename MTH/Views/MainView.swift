@@ -2,101 +2,71 @@ import SwiftUI
 import Foundation
 
 struct MainView: View {
-    @EnvironmentObject var viewModel: MixViewModel
-    @State private var showingSettings = false
-    @State private var showingAbout = false
-    @State private var showingEditMix = false
-    @State private var editingMix: Mix?
+    @StateObject private var viewModel = MixViewModel()
+    @State private var showingFilter = false
+    @State private var showingProfileView = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    // Цветовая схема
+    private let colors = (
+        red: Color(hex: "FF0000"),
+        orange: Color(hex: "FFA500"),
+        darkBlue: Color(hex: "01081B")
+    )
     
     var body: some View {
         NavigationView {
-            TabView {
-                MixListView(
-                    onAdd: {
-                        editingMix = nil
-                        showingEditMix = true
-                    },
-                    onEdit: { mix in
-                        // Получаем актуальные данные микса перед открытием редактора
-                        if let currentMix = viewModel.getMixById(mix.id) {
-                            editingMix = currentMix
-                            showingEditMix = true
-                        }
-                    },
-                    onDelete: { mix in
-                        viewModel.deleteMix(mix)
-                    },
-                    onSettings: { showingSettings = true },
-                    onAbout: { showingAbout = true },
-                    showInDevelopment: false
-                )
-                .tabItem {
-                    Label("Готовые", systemImage: "checkmark.circle")
+            MixListView(
+                onEdit: viewModel.editMix,
+                onDelete: viewModel.deleteMix
+            )
+            .environmentObject(viewModel)
+            .searchable(text: $viewModel.searchText, prompt: "Поиск миксов")
+            .navigationTitle("Миксы")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingProfileView = true }) {
+                        Image(systemName: "person.circle")
+                    }
                 }
                 
-                MixListView(
-                    onAdd: {
-                        editingMix = nil
-                        showingEditMix = true
-                    },
-                    onEdit: { mix in
-                        // Получаем актуальные данные микса перед открытием редактора
-                        if let currentMix = viewModel.getMixById(mix.id) {
-                            editingMix = currentMix
-                            showingEditMix = true
-                        }
-                    },
-                    onDelete: { mix in
-                        viewModel.deleteMix(mix)
-                    },
-                    onSettings: { showingSettings = true },
-                    onAbout: { showingAbout = true },
-                    showInDevelopment: true
-                )
-                .tabItem {
-                    Label("В разработке", systemImage: "hammer")
-                }
-            }
-            .tabViewStyle(.page)
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
-            .navigationTitle("Мои миксы")
-            .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            editingMix = nil
-                            showingEditMix = true
-                        }) {
-                            Image(systemName: "plus")
-                        }
-                        
-                        Menu {
-                            Button(action: { showingSettings = true }) {
-                                Label("Настройки", systemImage: "gear")
-                            }
-                            
-                            Button(action: { showingAbout = true }) {
-                                Label("О приложении", systemImage: "info.circle")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
+                    Button(action: { showingFilter = true }) {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: viewModel.addMix) {
+                        Image(systemName: "plus")
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showingEditMix) {
-            if let mix = editingMix {
-                EditMixView(mix: mix)
-            } else {
-                EditMixView(mix: nil)
+            .sheet(isPresented: $showingFilter) {
+                FilterView(
+                    selectedTags: viewModel.selectedTags,
+                    minStrength: Double(viewModel.minStrength),
+                    maxStrength: Double(viewModel.maxStrength)
+                )
+                .environmentObject(viewModel)
             }
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-        }
-        .sheet(isPresented: $showingAbout) {
-            AboutView()
+            .sheet(isPresented: $showingProfileView) {
+                ProfileView()
+            }
+            .overlay {
+                if viewModel.isLoading {
+                    ProgressView()
+                }
+            }
+            .alert("Ошибка", isPresented: .constant(viewModel.error != nil)) {
+                Button("OK") {
+                    viewModel.error = nil
+                }
+            } message: {
+                if let error = viewModel.error {
+                    Text(error)
+                }
+            }
         }
     }
 }
@@ -154,7 +124,6 @@ extension Color {
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
         MainView()
-            .environmentObject(MixViewModel())
     }
 }
 
@@ -246,6 +215,97 @@ struct FeatureRow: View {
             
             Text(text)
                 .foregroundColor(colors.darkBlue)
+        }
+    }
+}
+
+struct ProfileView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @StateObject private var profileViewModel = ProfileViewModel()
+    @State private var showingAddProfileAlert = false
+    @State private var newProfileName = ""
+    @State private var showingSettings = false
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    @State private var isCreatingProfile = false
+    
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("Профили")) {
+                    if profileViewModel.profiles.isEmpty {
+                        Text("Нет профилей. Создайте первый профиль.")
+                            .foregroundColor(.gray)
+                    }
+                    
+                    ForEach(profileViewModel.profiles) { profile in
+                        HStack {
+                            Button(action: { profileViewModel.setActiveProfile(profile) }) {
+                                Label(profile.name, systemImage: profile.isActive ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(profile.isActive ? .accentColor : .primary)
+                            }
+                            Spacer()
+                            Button(action: { profileViewModel.deleteProfile(profile) }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Профили")
+            .navigationBarItems(
+                leading: Button("Готово") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: HStack {
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gear")
+                    }
+                    Button(action: { showingAddProfileAlert = true }) {
+                        Image(systemName: "plus")
+                    }
+                }
+            )
+            .alert("Добавить новый профиль", isPresented: $showingAddProfileAlert) {
+                TextField("Название профиля", text: $newProfileName)
+                Button("Отмена", role: .cancel) { 
+                    newProfileName = ""
+                    isCreatingProfile = false
+                }
+                Button("Добавить") {
+                    if !newProfileName.isEmpty {
+                        isCreatingProfile = true
+                        Task {
+                            do {
+                                try await profileViewModel.createProfile(name: newProfileName)
+                                newProfileName = ""
+                                isCreatingProfile = false
+                            } catch {
+                                errorMessage = error.localizedDescription
+                                showingError = true
+                                isCreatingProfile = false
+                            }
+                        }
+                    }
+                }
+                .disabled(isCreatingProfile)
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+            .overlay {
+                if profileViewModel.isLoading || isCreatingProfile {
+                    ProgressView()
+                }
+            }
+            .alert("Ошибка", isPresented: $showingError) {
+                Button("OK") {
+                    showingError = false
+                }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
 }

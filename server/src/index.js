@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const mixRoutes = require('./routes/mixRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
 
@@ -17,6 +18,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mth')
 
 // Маршруты
 app.use('/api/mixes', mixRoutes);
+app.use('/api/profiles', profileRoutes);
+console.log('Express: Маршруты профилей должны быть подключены.');
 
 // Обработка ошибок
 app.use((err, req, res, next) => {

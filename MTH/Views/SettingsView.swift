@@ -13,6 +13,9 @@ struct SettingsView: View {
     @State private var alertMessage = ""
     @State private var newGuestTag = ""
     @State private var serverURL: String = UserDefaults.standard.string(forKey: "serverURL") ?? ""
+    @StateObject private var profileViewModel = ProfileViewModel()
+    @State private var showingAddProfileAlert = false
+    @State private var newProfileName: String = ""
     
     // Цветовая схема
     private let colors = (
@@ -23,134 +26,120 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationView {
-            List {
-                Section(header: Text("Управление данными")) {
-                    Button(action: {
-                        if let data = viewModel.exportMixesData() {
-                            let temporaryDirectoryURL = FileManager.default.temporaryDirectory
-                            let temporaryFileURL = temporaryDirectoryURL.appendingPathComponent("mixes.json")
-                            do {
-                                try data.write(to: temporaryFileURL)
-                                let activityVC = UIActivityViewController(
-                                    activityItems: [temporaryFileURL],
-                                    applicationActivities: nil
-                                )
-                                
-                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                                   let window = windowScene.windows.first,
-                                   let rootVC = window.rootViewController {
-                                    activityVC.popoverPresentationController?.sourceView = rootVC.view
-                                    rootVC.present(activityVC, animated: true)
-                                }
-                            } catch {
-                                alertMessage = "Ошибка при экспорте: \(error.localizedDescription)"
-                                showingAlert = true
-                            }
-                        } else {
-                            alertMessage = "Ошибка при экспорте миксов"
-                            showingAlert = true
-                        }
-                    }) {
-                        Label("Экспорт миксов", systemImage: "square.and.arrow.up")
-                    }
-                    
-                    Button(action: {
-                        showingImportPicker = true
-                    }) {
-                        Label("Импорт миксов", systemImage: "square.and.arrow.down")
-                    }
-                }
-                
-                Section(header: Text("Управление тегами")) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Теги")
-                            .font(.headline)
-                            .foregroundColor(colorScheme == .dark ? .white : colors.darkBlue)
-                        
-                        ScrollView {
-                            FlowLayout(spacing: 8) {
-                                ForEach(Array(Tags.allTags), id: \.self) { tag in
-                                    TagButton(
-                                        title: tag,
-                                        isSelected: true,
-                                        action: { deleteTag(tag) },
-                                        isGuestTag: false
-                                    )
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        
-                        HStack {
-                            TextField("Новый тег", text: $newTag)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            
-                            Button(action: addTag) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(colors.red)
-                            }
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Гости")
-                            .font(.headline)
-                            .foregroundColor(colorScheme == .dark ? .white : colors.darkBlue)
-                        
-                        ScrollView {
-                            FlowLayout(spacing: 8) {
-                                ForEach(Array(GuestTags.allTags), id: \.self) { tag in
-                                    TagButton(
-                                        title: tag,
-                                        isSelected: true,
-                                        action: { deleteGuestTag(tag) },
-                                        isGuestTag: true
-                                    )
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        
-                        HStack {
-                            TextField("Новый гость", text: $newGuestTag)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            
-                            Button(action: addGuestTag) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(colors.red)
-                            }
-                        }
-                    }
-                }
-                
+            Form {
                 Section(header: Text("Настройки сервера")) {
                     TextField("URL сервера", text: $serverURL)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
-                    Button("Сохранить") {
+                    Button("Сохранить URL") {
                         saveServerURL()
                     }
                 }
                 
-                Section(header: Text("О приложении")) {
-                    Text("MTH - Менеджер табачных миксов")
-                    Text("Версия 1.0")
-                }
-            }
-            .listStyle(InsetGroupedListStyle())
-            .navigationTitle("Настройки")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Готово") {
-                        presentationMode.wrappedValue.dismiss()
+                Section(header: Text("Управление профилями")) {
+                    if profileViewModel.profiles.isEmpty {
+                        Text("Нет профилей. Создайте первый профиль.")
+                            .foregroundColor(.gray)
                     }
-                    .foregroundColor(colors.red)
+                    
+                    ForEach(profileViewModel.profiles) { profile in
+                        HStack {
+                            Button(action: { profileViewModel.setActiveProfile(profile) }) {
+                                Label(profile.name, systemImage: profile.isActive ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(profile.isActive ? .accentColor : .primary)
+                            }
+                            Spacer()
+                            Button(action: { profileViewModel.deleteProfile(profile) }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                        }
+                    }
+                    
+                    Button("Добавить профиль") {
+                        showingAddProfileAlert = true
+                    }
+                }
+                
+                Section(header: Text("Управление тегами")) {
+                    VStack(alignment: .leading) {
+                        Text("Все теги миксов:")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(Array(viewModel.allTags), id: \.self) { tag in
+                                    TagButton(
+                                        title: tag,
+                                        isSelected: true,
+                                        action: {},
+                                        isGuestTag: false
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    HStack {
+                        TextField("Новый тег", text: $newTag)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Button("Добавить") {
+                            addTag()
+                        }
+                        .disabled(newTag.isEmpty)
+                    }
+                    
+                    VStack(alignment: .leading) {
+                        Text("Все теги гостей:")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(Array(viewModel.allGuestTags), id: \.self) { tag in
+                                    TagButton(
+                                        title: tag,
+                                        isSelected: true,
+                                        action: {},
+                                        isGuestTag: true
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    HStack {
+                        TextField("Новый тег гостя", text: $newGuestTag)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Button("Добавить") {
+                            addGuestTag()
+                        }
+                        .disabled(newGuestTag.isEmpty)
+                    }
+                }
+                
+                Section(header: Text("Импорт/Экспорт")) {
+                    Button("Экспортировать данные") {
+                        if let data = viewModel.exportMixesData() {
+                            let activityVC = UIActivityViewController(activityItems: [data], applicationActivities: nil)
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                               let window = windowScene.windows.first,
+                               let rootVC = window.rootViewController {
+                                activityVC.popoverPresentationController?.sourceView = rootVC.view
+                                rootVC.present(activityVC, animated: true)
+                            }
+                        }
+                    }
+                    
+                    Button("Импортировать данные") {
+                        showingImportPicker = true
+                    }
                 }
             }
+            .navigationTitle("Настройки")
+            .navigationBarItems(trailing: Button("Готово") {
+                presentationMode.wrappedValue.dismiss()
+            })
             .sheet(isPresented: $showingImportPicker) {
                 DocumentPicker(
                     onPick: { url in
@@ -172,6 +161,23 @@ struct SettingsView: View {
                 Text(alertMessage)
                     .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
+            .alert("Добавить новый профиль", isPresented: $showingAddProfileAlert) {
+                TextField("Название профиля", text: $newProfileName)
+                Button("Отмена", role: .cancel) { newProfileName = "" }
+                Button("Добавить") {
+                    if !newProfileName.isEmpty {
+                        Task {
+                            do {
+                                try await profileViewModel.createProfile(name: newProfileName)
+                                newProfileName = ""
+                            } catch {
+                                alertMessage = error.localizedDescription
+                                showingAlert = true
+                            }
+                        }
+                    }
+                }
+            }
         }
         .accentColor(colors.red)
     }
@@ -179,25 +185,25 @@ struct SettingsView: View {
     private func addTag() {
         let tag = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
         if !tag.isEmpty {
-            Tags.addTag(tag)
+            viewModel.addTag(tag)
             newTag = ""
         }
     }
     
     private func deleteTag(_ tag: String) {
-        Tags.removeTag(tag)
+        viewModel.removeTag(tag)
     }
     
     private func addGuestTag() {
         let tag = newGuestTag.trimmingCharacters(in: .whitespacesAndNewlines)
         if !tag.isEmpty {
-            GuestTags.addTag(tag)
+            viewModel.addGuestTag(tag)
             newGuestTag = ""
         }
     }
     
     private func deleteGuestTag(_ tag: String) {
-        GuestTags.removeTag(tag)
+        viewModel.removeGuestTag(tag)
     }
     
     private func saveServerURL() {
@@ -221,7 +227,8 @@ struct SettingsView: View {
         }
         
         // Сохраняем URL
-        APIService.shared.setServerURL(serverURL)
+        viewModel.apiService.setServerURL(serverURL)
+        UserDefaults.standard.set(serverURL, forKey: "serverURL")
         alertMessage = "URL сервера успешно обновлен"
         showingAlert = true
     }
@@ -241,39 +248,16 @@ struct DocumentPicker: UIViewControllerRepresentable {
     
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let parent: DocumentPicker
-        
-        init(_ parent: DocumentPicker) {
-            self.parent = parent
-        }
-        
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            guard let url = urls.first else {
-                parent.alertMessage = "Не удалось получить файл"
-                parent.showAlert = true
-                return
+    func makeCoordinator() -> DocumentPickerCoordinator {
+        DocumentPickerCoordinator(
+            onPick: { url in
+                onPick(url)
+            },
+            onError: { error in
+                alertMessage = error
+                showAlert = true
             }
-            
-            // Проверяем, что файл доступен для чтения
-            guard url.startAccessingSecurityScopedResource() else {
-                parent.alertMessage = "Нет доступа к файлу"
-                parent.showAlert = true
-                return
-            }
-            defer { url.stopAccessingSecurityScopedResource() }
-            
-            parent.onPick(url)
-        }
-        
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            // Пользователь отменил выбор файла
-            print("Выбор файла отменен")
-        }
+        )
     }
 }
 
@@ -281,6 +265,7 @@ struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView()
             .environmentObject(MixViewModel())
+            .environmentObject(ProfileViewModel())
     }
 }
 

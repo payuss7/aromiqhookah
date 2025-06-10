@@ -5,6 +5,11 @@ const mixSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    profileId: {
+        type: String,
+        required: true,
+        index: true // Добавляем индекс для быстрого поиска по profileId
+    },
     name: {
         type: String,
         required: true

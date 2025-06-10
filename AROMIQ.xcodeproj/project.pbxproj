@@ -27,6 +27,8 @@
 		D8ED99742DEAE94A007FE1D2 /* TagButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8ED99732DEAE94A007FE1D2 /* TagButton.swift */; };
 		D8ED99762DEAF5D7007FE1D2 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8ED99752DEAF5D7007FE1D2 /* APIService.swift */; };
 		D8ED99792DEAF604007FE1D2 /* MixViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8ED99772DEAF604007FE1D2 /* MixViewModel.swift */; };
+		D8ED997B2DF5CCA7007FE1D2 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8ED997A2DF5CCA7007FE1D2 /* Profile.swift */; };
+		D8ED997D2DF5CD3D007FE1D2 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8ED997C2DF5CD3D007FE1D2 /* ProfileViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +74,8 @@
 		D8ED99732DEAE94A007FE1D2 /* TagButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TagButton.swift; sourceTree = "<group>"; };
 		D8ED99752DEAF5D7007FE1D2 /* APIService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = APIService.swift; path = MTH/Services/APIService.swift; sourceTree = "<group>"; };
 		D8ED99772DEAF604007FE1D2 /* MixViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MixViewModel.swift; sourceTree = "<group>"; };
+		D8ED997A2DF5CCA7007FE1D2 /* Profile.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
+		D8ED997C2DF5CD3D007FE1D2 /* ProfileViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -166,6 +170,7 @@
 		D86F39732DAC3E1300922184 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				D8ED997A2DF5CCA7007FE1D2 /* Profile.swift */,
 				D8ED99712DE9E698007FE1D2 /* GuestTags.swift */,
 				D86F39722DAC3E1300922184 /* Mix.swift */,
 			);
@@ -213,6 +218,7 @@
 		D8ED99782DEAF604007FE1D2 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				D8ED997C2DF5CD3D007FE1D2 /* ProfileViewModel.swift */,
 				D8ED99772DEAF604007FE1D2 /* MixViewModel.swift */,
 			);
 			name = ViewModels;
@@ -357,9 +363,11 @@
 				D86F39822DAC3E1300922184 /* MixService.swift in Sources */,
 				D8D594232DB40196008D8A42 /* SettingsView.swift in Sources */,
 				D8ED99762DEAF5D7007FE1D2 /* APIService.swift in Sources */,
+				D8ED997B2DF5CCA7007FE1D2 /* Profile.swift in Sources */,
 				D8D594212DB40129008D8A42 /* Tags.swift in Sources */,
 				D86F39802DAC3E1300922184 /* Mix.swift in Sources */,
 				D8ED99722DE9E698007FE1D2 /* GuestTags.swift in Sources */,
+				D8ED997D2DF5CD3D007FE1D2 /* ProfileViewModel.swift in Sources */,
 				D86F393B2DAC35D700922184 /* MTHApp.swift in Sources */,
 				D8ED99792DEAF604007FE1D2 /* MixViewModel.swift in Sources */,
 				D86F39882DAC3E1300922184 /* MixListView.swift in Sources */,

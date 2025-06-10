@@ -1,68 +1,85 @@
 const Mix = require('../models/Mix');
 
-// Получить все миксы
-exports.getAllMixes = async (req, res) => {
+// Получить все миксы для профиля
+exports.getMixes = async (req, res) => {
     try {
-        const mixes = await Mix.find();
-        // Преобразуем _id в id для каждого микса
-        const mixesWithId = mixes.map(mix => {
-            const obj = mix.toObject();
-            obj.id = obj._id;
-            delete obj._id;
-            return obj;
-        });
-        res.json(mixesWithId);
+        const { profileId } = req.query;
+        if (!profileId) {
+            return res.status(400).json({ message: 'ID профиля обязателен' });
+        }
+
+        const mixes = await Mix.find({ profileId });
+        res.json(mixes);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Ошибка при получении миксов:', error);
+        res.status(500).json({ message: 'Ошибка сервера при получении миксов' });
     }
 };
 
 // Создать новый микс
 exports.createMix = async (req, res) => {
-    const mix = new Mix(req.body);
     try {
-        const newMix = await mix.save();
-        res.status(201).json(newMix);
+        const { profileId } = req.body;
+        if (!profileId) {
+            return res.status(400).json({ message: 'ID профиля обязателен' });
+        }
+
+        const mix = new Mix({
+            ...req.body,
+            _id: req.body.id // Используем id из запроса как _id
+        });
+
+        await mix.save();
+        res.status(201).json(mix);
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error('Ошибка при создании микса:', error);
+        res.status(500).json({ message: 'Ошибка сервера при создании микса' });
     }
 };
 
 // Обновить микс
 exports.updateMix = async (req, res) => {
-    console.log('PUT /mixes/:id called');
-    console.log('Request body:', req.body);
-
-    // Если в теле запроса есть id, но нет _id — добавляем _id для совместимости с Mongoose
-    if (!req.body._id && req.body.id) {
-        req.body._id = req.body.id;
-    }
-
     try {
-        const mix = await Mix.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, upsert: true } // upsert: true — создаст документ, если не найден
-        );
+        const { id } = req.params;
+        const { profileId } = req.body;
+
+        if (!profileId) {
+            return res.status(400).json({ message: 'ID профиля обязателен' });
+        }
+
+        const mix = await Mix.findOne({ _id: id, profileId });
         if (!mix) {
             return res.status(404).json({ message: 'Микс не найден' });
         }
+
+        Object.assign(mix, req.body);
+        await mix.save();
         res.json(mix);
     } catch (error) {
-        console.error('Error updating mix:', error);
-        res.status(400).json({ message: error.message });
+        console.error('Ошибка при обновлении микса:', error);
+        res.status(500).json({ message: 'Ошибка сервера при обновлении микса' });
     }
 };
 
 // Удалить микс
 exports.deleteMix = async (req, res) => {
     try {
-        const mix = await Mix.findByIdAndDelete(req.params.id);
-        if (!mix) {
-            return res.status(404).json({ message: 'Мисок не найден' });
+        const { id } = req.params;
+        const { profileId } = req.query;
+
+        if (!profileId) {
+            return res.status(400).json({ message: 'ID профиля обязателен' });
         }
-        res.json({ message: 'Мисок удален' });
+
+        const mix = await Mix.findOne({ _id: id, profileId });
+        if (!mix) {
+            return res.status(404).json({ message: 'Микс не найден' });
+        }
+
+        await Mix.findByIdAndDelete(id);
+        res.json({ message: 'Микс успешно удален' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Ошибка при удалении микса:', error);
+        res.status(500).json({ message: 'Ошибка сервера при удалении микса' });
     }
 }; 

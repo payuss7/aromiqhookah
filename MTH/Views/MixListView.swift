@@ -31,12 +31,9 @@ struct MixRow: View {
                 
                 Spacer()
                 
-                Button(action: { 
-                    print("Нажата кнопка перемещения для микса: \(mix.name)")
-                    onMove(mix)
-                }) {
-                    Image(systemName: mix.isInDevelopment ? "checkmark.circle" : "hammer")
-                        .foregroundColor(colors.orange)
+                Button(action: { onMove(mix) }) {
+                    Image(systemName: mix.isInDevelopment ? "hammer" : "checkmark.circle")
+                        .foregroundColor(mix.isInDevelopment ? colors.orange : .green)
                         .frame(width: 30, height: 30)
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -54,6 +51,12 @@ struct MixRow: View {
                 .foregroundColor(colorScheme == .dark ? .white : .secondary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
+            
+            if !mix.notes.isEmpty {
+                Text("Заметки: \(mix.notes)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
             
             if !mix.tags.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -125,12 +128,8 @@ struct MixListView: View {
     @State private var selectedMix: Mix? = nil
     @State private var mixToDelete: Mix? = nil
     @State private var showingFilter = false
-    let onAdd: () -> Void
     let onEdit: (Mix) -> Void
     let onDelete: (Mix) -> Void
-    let onSettings: () -> Void
-    let onAbout: () -> Void
-    let showInDevelopment: Bool
     
     // Цветовая схема
     private let colors = (
@@ -185,17 +184,24 @@ struct MixListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(showInDevelopment ? viewModel.developmentMixes : viewModel.readyMixes) { mix in
-                        MixRow(mix: mix, onDelete: { viewModel.deleteMix($0) }, onEdit: { onEdit($0) }, onMove: { viewModel.moveMix($0) })
+                    Section(header: Text("Готовые миксы")) {
+                        ForEach(viewModel.readyMixes) { mix in
+                            MixRow(mix: mix, onDelete: { viewModel.deleteMix($0) }, onEdit: { onEdit($0) }, onMove: { viewModel.moveMix($0) })
+                        }
+                    }
+                    Section(header: Text("В разработке")) {
+                        ForEach(viewModel.developmentMixes) { mix in
+                            MixRow(mix: mix, onDelete: { viewModel.deleteMix($0) }, onEdit: { onEdit($0) }, onMove: { viewModel.moveMix($0) })
+                        }
                     }
                 }
-                .listStyle(PlainListStyle())
+                .listStyle(InsetGroupedListStyle())
                 .refreshable {
                     await viewModel.loadMixes()
                 }
             }
         }
-        .navigationTitle(showInDevelopment ? "В разработке" : "Готовые")
+        .navigationTitle("Миксы")
         .sheet(isPresented: $showingFilter) {
             FilterView(
                 selectedTags: viewModel.selectedTags,
@@ -398,12 +404,8 @@ struct MixDetailView: View {
 struct MixListView_Previews: PreviewProvider {
     static var previews: some View {
         MixListView(
-            onAdd: {},
             onEdit: { _ in },
-            onDelete: { _ in },
-            onSettings: {},
-            onAbout: {},
-            showInDevelopment: false
+            onDelete: { _ in }
         )
         .environmentObject(MixViewModel())
     }

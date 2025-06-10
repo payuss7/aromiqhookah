@@ -2,6 +2,7 @@ import Foundation
 
 struct Mix: Identifiable, Codable, Equatable {
     let id: UUID
+    let profileId: String
     var name: String
     var composition: String
     var strength: Int
@@ -10,8 +11,9 @@ struct Mix: Identifiable, Codable, Equatable {
     var guestTags: [String]
     var isInDevelopment: Bool
     
-    init(id: UUID = UUID(), name: String, composition: String, strength: Int, notes: String, tags: [String], guestTags: [String] = [], isInDevelopment: Bool) {
+    init(id: UUID = UUID(), profileId: String, name: String, composition: String, strength: Int, notes: String, tags: [String], guestTags: [String] = [], isInDevelopment: Bool) {
         self.id = id
+        self.profileId = profileId
         self.name = name
         self.composition = composition
         self.strength = strength
@@ -22,12 +24,13 @@ struct Mix: Identifiable, Codable, Equatable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, composition, strength, notes, tags, guestTags, isInDevelopment
+        case id, profileId, name, composition, strength, notes, tags, guestTags, isInDevelopment
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
+        profileId = try container.decode(String.self, forKey: .profileId)
         name = try container.decode(String.self, forKey: .name)
         composition = try container.decode(String.self, forKey: .composition)
         strength = try container.decode(Int.self, forKey: .strength)

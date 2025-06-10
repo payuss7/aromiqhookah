@@ -2,229 +2,163 @@ import SwiftUI
 import Foundation
 
 struct EditMixView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var viewModel: MixViewModel
+    @StateObject private var profileViewModel = ProfileViewModel()
+    
     let mix: Mix?
-    @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var viewModel: MixViewModel
-    @Environment(\.colorScheme) var colorScheme
+    
     @State private var name: String
     @State private var composition: String
-    @State private var strength: Double
     @State private var notes: String
-    @State private var selectedTags: Set<String>
-    @State private var selectedGuestTags: Set<String>
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
+    @State private var tags: [String]
+    @State private var guestTags: [String]
+    @State private var strength: Double
+    @State private var isInDevelopment: Bool
+    @State private var newTag: String = ""
+    @State private var newGuestTag: String = ""
+    @State private var showingError = false
+    @State private var errorMessage = ""
     
     init(mix: Mix?) {
         self.mix = mix
         _name = State(initialValue: mix?.name ?? "")
         _composition = State(initialValue: mix?.composition ?? "")
-        _strength = State(initialValue: Double(mix?.strength ?? 5))
         _notes = State(initialValue: mix?.notes ?? "")
-        _selectedTags = State(initialValue: Set(mix?.tags ?? []))
-        _selectedGuestTags = State(initialValue: Set(mix?.guestTags ?? []))
+        _tags = State(initialValue: mix?.tags ?? [])
+        _guestTags = State(initialValue: mix?.guestTags ?? [])
+        _strength = State(initialValue: Double(mix?.strength ?? 0))
+        _isInDevelopment = State(initialValue: mix?.isInDevelopment ?? true)
     }
-    
-    // Цветовая схема
-    private let colors = (
-        red: Color(hex: "FF0000"),
-        orange: Color(hex: "FFA500"),
-        darkBlue: Color(hex: "01081B")
-    )
     
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("Основная информация")) {
-                    TextField("Название", text: $name)
-                        .foregroundColor(colorScheme == .dark ? .white : .black)
-                        .autocapitalization(.words)
-                    
-                    VStack(alignment: .leading) {
-                        Text("Состав")
-                            .foregroundColor(colorScheme == .dark ? .white : colors.darkBlue)
-                        TextEditor(text: $composition)
-                            .frame(minHeight: 100)
-                            .foregroundColor(colorScheme == .dark ? .white : .black)
-                            .autocapitalization(.sentences)
+                    TextField("Название микса", text: $name)
+                    TextField("Состав", text: $composition)
+                    TextField("Заметки", text: $notes)
+                    HStack {
+                        Text("Крепость: \(Int(strength))/10")
+                        Slider(value: $strength, in: 0...10, step: 1)
                     }
-                    
-                    VStack(alignment: .leading) {
-                        Text("Крепость: \(Int(strength))")
-                            .foregroundColor(colorScheme == .dark ? .white : colors.darkBlue)
-                        Slider(value: $strength, in: 1...10, step: 1)
-                            .accentColor(colors.red)
-                    }
-                }
-                
-                Section(header: Text("Заметки")) {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 100)
-                        .foregroundColor(colorScheme == .dark ? .white : .black)
-                        .autocapitalization(.sentences)
+                    Toggle("В разработке", isOn: $isInDevelopment)
                 }
                 
                 Section(header: Text("Теги")) {
-                    ScrollView {
-                        FlowLayout(spacing: 8) {
-                            ForEach(Array(Tags.allTags), id: \.self) { tag in
-                                TagButton(
-                                    title: tag,
-                                    isSelected: selectedTags.contains(tag),
-                                    action: { toggleTag(tag) },
-                                    isGuestTag: false
-                                )
+                    HStack {
+                        TextField("Новый тег", text: $newTag)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Button(action: addTag) {
+                            Image(systemName: "plus.circle.fill")
+                        }
+                        .disabled(newTag.isEmpty)
+                    }
+                    ForEach(tags, id: \.self) { tag in
+                        HStack {
+                            Text(tag)
+                            Spacer()
+                            Button(action: { removeTag(tag) }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
                             }
                         }
-                        .padding(.vertical, 8)
                     }
-                    .frame(minHeight: 100)
                 }
                 
-                Section(header: Text("Гости")) {
-                    ScrollView {
-                        FlowLayout(spacing: 8) {
-                            ForEach(Array(GuestTags.allTags), id: \.self) { tag in
-                                TagButton(
-                                    title: tag,
-                                    isSelected: selectedGuestTags.contains(tag),
-                                    action: { toggleGuestTag(tag) },
-                                    isGuestTag: true
-                                )
+                Section(header: Text("Теги гостей")) {
+                    HStack {
+                        TextField("Новый тег гостя", text: $newGuestTag)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Button(action: addGuestTag) {
+                            Image(systemName: "plus.circle.fill")
+                        }
+                        .disabled(newGuestTag.isEmpty)
+                    }
+                    ForEach(guestTags, id: \.self) { tag in
+                        HStack {
+                            Text(tag)
+                            Spacer()
+                            Button(action: { removeGuestTag(tag) }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
                             }
                         }
-                        .padding(.vertical, 8)
                     }
-                    .frame(minHeight: 100)
                 }
             }
-            .navigationTitle(mix == nil ? "Новый микс" : "Редактирование микса")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Отмена") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .foregroundColor(colors.red)
+            .navigationTitle(mix == nil ? "Новый микс" : "Редактирование")
+            .navigationBarItems(
+                leading: Button("Отмена") {
+                    dismiss()
+                },
+                trailing: Button("Сохранить") {
+                    saveMix()
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Сохранить") {
-                        validateAndSave()
-                    }
-                    .disabled(name.isEmpty || composition.isEmpty)
-                    .foregroundColor(colors.red)
-                }
-            }
-            .alert("Ошибка", isPresented: $showingAlert) {
+                .disabled(name.isEmpty)
+            )
+            .alert("Ошибка", isPresented: $showingError) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(alertMessage)
-                    .foregroundColor(colorScheme == .dark ? .white : .primary)
-            }
-            .onAppear {
-                if let mix = mix, let currentMix = viewModel.getMixById(mix.id) {
-                    name = currentMix.name
-                    composition = currentMix.composition
-                    strength = Double(currentMix.strength)
-                    notes = currentMix.notes
-                    selectedTags = Set(currentMix.tags)
-                    selectedGuestTags = Set(currentMix.guestTags)
-                }
+                Text(errorMessage)
             }
         }
-        .accentColor(colors.red)
     }
     
-    private func toggleTag(_ tag: String) {
-        if selectedTags.contains(tag) {
-            selectedTags.remove(tag)
-        } else {
-            selectedTags.insert(tag)
+    private func addTag() {
+        let tag = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tag.isEmpty && !tags.contains(tag) {
+            tags.append(tag)
+            newTag = ""
         }
     }
     
-    private func toggleGuestTag(_ tag: String) {
-        if selectedGuestTags.contains(tag) {
-            selectedGuestTags.remove(tag)
-        } else {
-            selectedGuestTags.insert(tag)
+    private func removeTag(_ tag: String) {
+        tags.removeAll { $0 == tag }
+    }
+    
+    private func addGuestTag() {
+        let tag = newGuestTag.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tag.isEmpty && !guestTags.contains(tag) {
+            guestTags.append(tag)
+            newGuestTag = ""
         }
     }
     
-    private func validateAndSave() {
-        if name.isEmpty {
-            alertMessage = "Пожалуйста, введите название микса"
-            showingAlert = true
+    private func removeGuestTag(_ tag: String) {
+        guestTags.removeAll { $0 == tag }
+    }
+    
+    private func saveMix() {
+        guard let activeProfile = profileViewModel.activeProfile ?? ProfileManager.activeProfile else {
+            errorMessage = "Не выбран активный профиль"
+            showingError = true
             return
         }
-        
-        if composition.isEmpty {
-            alertMessage = "Пожалуйста, введите состав микса"
-            showingAlert = true
-            return
-        }
-        
-        let newMix = Mix(
+        let updatedMix = Mix(
             id: mix?.id ?? UUID(),
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            composition: composition.trimmingCharacters(in: .whitespacesAndNewlines),
+            profileId: activeProfile.id,
+            name: name,
+            composition: composition,
             strength: Int(strength),
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
-            tags: Array(selectedTags),
-            guestTags: Array(selectedGuestTags),
-            isInDevelopment: mix?.isInDevelopment ?? true
+            notes: notes,
+            tags: tags,
+            guestTags: guestTags,
+            isInDevelopment: isInDevelopment
         )
-        
-        viewModel.saveMix(newMix)
-        presentationMode.wrappedValue.dismiss()
-    }
-}
-
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let result = layout(sizes: sizes, proposal: proposal)
-        return result.size
-    }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let result = layout(sizes: sizes, proposal: proposal)
-        
-        for (index, subview) in subviews.enumerated() {
-            let point = CGPoint(x: result.offsets[index].x + bounds.minX, y: result.offsets[index].y + bounds.minY)
-            subview.place(at: point, proposal: .unspecified)
-        }
-    }
-    
-    private func layout(sizes: [CGSize], proposal: ProposedViewSize) -> (size: CGSize, offsets: [CGPoint]) {
-        var width: CGFloat = 0
-        var height: CGFloat = 0
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var maxHeight: CGFloat = 0
-        
-        var offsets: [CGPoint] = []
-        
-        for size in sizes {
-            if x + size.width > proposal.width ?? .infinity {
-                x = 0
-                y += maxHeight + spacing
-                maxHeight = 0
+        Task {
+            do {
+                if mix == nil {
+                    try await viewModel.saveMix(updatedMix)
+                } else {
+                    try await viewModel.updateMix(updatedMix)
+                }
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
             }
-            
-            offsets.append(CGPoint(x: x, y: y))
-            
-            x += size.width + spacing
-            maxHeight = max(maxHeight, size.height)
-            width = max(width, x - spacing)
-            height = max(height, y + maxHeight)
         }
-        
-        return (CGSize(width: width, height: height), offsets)
     }
 }
 
