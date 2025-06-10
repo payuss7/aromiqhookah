@@ -28,7 +28,7 @@ enum APIError: Error, LocalizedError {
 
 protocol APIProtocol {
     func setServerURL(_ url: String)
-    func fetchMixes() async throws -> [Mix]
+    func fetchMixes(profileId: String) async throws -> [Mix]
     func saveMix(_ mix: Mix) async throws
     func updateMix(_ mix: Mix) async throws
     func deleteMix(_ mix: Mix) async throws
@@ -66,9 +66,9 @@ class APIService: APIProtocol {
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
     }
     
-    func fetchMixes() async throws -> [Mix] {
+    func fetchMixes(profileId: String) async throws -> [Mix] {
         try checkServerURL()
-        guard let url = URL(string: "\(baseURL)/mixes") else { throw APIError.invalidURL }
+        guard let url = URL(string: "\(baseURL)/mixes?profileId=\(profileId)") else { throw APIError.invalidURL }
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -82,16 +82,65 @@ class APIService: APIProtocol {
     func saveMix(_ mix: Mix) async throws {
         try checkServerURL()
         guard let url = URL(string: "\(baseURL)/mixes") else { throw APIError.invalidURL }
+        print("APIService: Base URL for saveMix: \(baseURL)")
+        print("APIService: Full URL for saveMix: \(url.absoluteString)")
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(mix)
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
+        
+        // Создаем словарь с данными микса
+        let mixData: [String: Any] = [
+            "profileId": mix.profileId,
+            "name": mix.name,
+            "composition": mix.composition,
+            "strength": mix.strength,
+            "notes": mix.notes,
+            "tags": mix.tags,
+            "guestTags": mix.guestTags,
+            "isInDevelopment": mix.isInDevelopment
+        ]
+        
+        print("APIService: Mix data for saveMix: \(mixData)")
+        
+        // Кодируем словарь в JSON
+        request.httpBody = try JSONSerialization.data(withJSONObject: mixData)
+        
+        if let jsonBody = String(data: request.httpBody ?? Data(), encoding: .utf8) {
+            print("APIService: Request body for saveMix: \(jsonBody)")
         }
-        guard httpResponse.statusCode == 201 else {
-            throw APIError.serverError(statusCode: httpResponse.statusCode)
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            print("APIService: Received data size for saveMix: \(data.count) bytes")
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("APIService: Received data for saveMix: \(responseString)")
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("APIService: Invalid response for saveMix")
+                throw APIError.invalidResponse
+            }
+            
+            print("APIService: saveMix response status code: \(httpResponse.statusCode)")
+            
+            if httpResponse.statusCode == 201 {
+                // Декодируем ответ, чтобы получить id созданного микса
+                if let createdMix = try? JSONDecoder().decode(Mix.self, from: data) {
+                    print("APIService: Successfully created mix with id: \(createdMix.id)")
+                }
+                return
+            } else {
+                let errorMessage = try? JSONDecoder().decode([String: String].self, from: data)
+                print("APIService: Server error during saveMix: \(errorMessage?["message"] ?? "No message")")
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorMessage?["message"])
+            }
+        } catch let error as APIError {
+            print("APIService: APIError during saveMix: \(error.localizedDescription)")
+            throw error
+        } catch {
+            print("APIService: Unknown error during saveMix: \(error.localizedDescription)")
+            throw APIError.networkError(error)
         }
     }
     
@@ -158,6 +207,12 @@ class APIService: APIProtocol {
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
+            print("APIService: Received data size for createProfile: \(data.count) bytes")
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("APIService: Received data for createProfile: \(responseString)")
+            } else {
+                print("APIService: Unable to decode received data into string for createProfile.")
+            }
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("APIService: Invalid response for createProfile.")
                 throw APIError.invalidResponse

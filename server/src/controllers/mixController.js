@@ -19,15 +19,15 @@ exports.getMixes = async (req, res) => {
 // Создать новый микс
 exports.createMix = async (req, res) => {
     try {
+        console.log('Получен запрос на создание микса. Тело запроса:', req.body);
         const { profileId } = req.body;
         if (!profileId) {
             return res.status(400).json({ message: 'ID профиля обязателен' });
         }
 
-        const mix = new Mix({
-            ...req.body,
-            _id: req.body.id // Используем id из запроса как _id
-        });
+        const mix = new Mix(req.body);
+
+        console.log('Попытка сохранить микс:', mix);
 
         await mix.save();
         res.status(201).json(mix);

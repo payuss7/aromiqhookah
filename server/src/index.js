@@ -11,6 +11,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+    console.log('Received request body in index.js:', req.body);
+    next();
+});
+
 // Подключение к MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mth')
     .then(() => console.log('Connected to MongoDB'))

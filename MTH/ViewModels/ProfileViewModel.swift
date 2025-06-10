@@ -27,6 +27,7 @@ class ProfileViewModel: ObservableObject {
                 print("ProfileViewModel: Получено профилей: \(loadedProfiles.count)")
                 await MainActor.run {
                     self.profiles = loadedProfiles
+                    ProfileManager.profiles = loadedProfiles
                     if let activeId = ProfileManager.activeProfileId {
                         self.activeProfile = loadedProfiles.first { $0.id == activeId }
                         print("ProfileViewModel: Активный профиль: \(self.activeProfile?.name ?? "нет")")
@@ -53,6 +54,7 @@ class ProfileViewModel: ObservableObject {
             print("ProfileViewModel: Профиль успешно создан: \(newProfile.name)")
             await MainActor.run {
                 self.profiles.append(newProfile)
+                ProfileManager.profiles = self.profiles
                 self.isLoading = false
                 // Автоматически устанавливаем новый профиль как активный, если это первый профиль
                 if self.profiles.count == 1 {
@@ -85,6 +87,7 @@ class ProfileViewModel: ObservableObject {
                     if self.activeProfile?.id == profile.id {
                         self.activeProfile = updatedProfile
                     }
+                    ProfileManager.profiles = self.profiles
                     self.isLoading = false
                 }
             } catch {
@@ -108,6 +111,7 @@ class ProfileViewModel: ObservableObject {
                 print("ProfileViewModel: Профиль успешно удален")
                 await MainActor.run {
                     self.profiles.removeAll { $0.id == profile.id }
+                    ProfileManager.profiles = self.profiles
                     if self.activeProfile?.id == profile.id {
                         self.activeProfile = self.profiles.first
                         ProfileManager.setActiveProfile(self.profiles.first?.id ?? "")
@@ -127,6 +131,15 @@ class ProfileViewModel: ObservableObject {
     func setActiveProfile(_ profile: Profile) {
         print("ProfileViewModel: Установка активного профиля: \(profile.name)")
         ProfileManager.setActiveProfile(profile.id)
-        activeProfile = profile
+        Task {
+            await MainActor.run {
+                activeProfile = profile
+                // Обновляем isActive для всех профилей в списке
+                for i in 0..<profiles.count {
+                    profiles[i].isActive = profiles[i].id == profile.id
+                }
+                ProfileManager.profiles = self.profiles
+            }
+        }
     }
 } 

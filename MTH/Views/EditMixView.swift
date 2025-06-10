@@ -136,7 +136,7 @@ struct EditMixView: View {
             return
         }
         let updatedMix = Mix(
-            id: mix?.id ?? UUID(),
+            id: mix?.id ?? UUID().uuidString,
             profileId: activeProfile.id,
             name: name,
             composition: composition,

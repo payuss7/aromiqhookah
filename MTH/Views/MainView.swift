@@ -7,6 +7,11 @@ struct MainView: View {
     @State private var showingProfileView = false
     @Environment(\.colorScheme) var colorScheme
     
+    init() {
+        // Временно очищаем все профили для отладки проблемы с UserDefaults
+        // ProfileManager.clearAllProfiles()
+    }
+    
     // Цветовая схема
     private let colors = (
         red: Color(hex: "FF0000"),
@@ -243,8 +248,11 @@ struct ProfileView: View {
                             Button(action: { profileViewModel.setActiveProfile(profile) }) {
                                 Label(profile.name, systemImage: profile.isActive ? "checkmark.circle.fill" : "circle")
                                     .foregroundColor(profile.isActive ? .accentColor : .primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                             }
-                            Spacer()
+                            .buttonStyle(.plain)
+                            
                             Button(action: { profileViewModel.deleteProfile(profile) }) {
                                 Image(systemName: "trash")
                                     .foregroundColor(.red)

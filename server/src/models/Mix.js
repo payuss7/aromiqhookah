@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
 const mixSchema = new mongoose.Schema({
     _id: {
         type: String,
-        required: true
+        default: uuidv4
     },
     profileId: {
         type: String,
@@ -16,7 +17,7 @@ const mixSchema = new mongoose.Schema({
     },
     composition: {
         type: String,
-        required: true
+        default: ''
     },
     strength: {
         type: Number,

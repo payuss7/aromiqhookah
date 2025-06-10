@@ -16,6 +16,7 @@ class MixViewModel: NSObject, ObservableObject {
     @Published var maxStrength: Int = 10
     @Published var isLoading = false
     @Published var error: String?
+    @Published var activeProfile: Profile?
     
     private var cancellables = Set<AnyCancellable>()
     let apiService: APIProtocol
@@ -35,7 +36,26 @@ class MixViewModel: NSObject, ObservableObject {
         self.apiService = apiService
         super.init()
         print("Инициализация MixViewModel")
+        // Устанавливаем начальный активный профиль
+        self.activeProfile = ProfileManager.activeProfile
+        print("MixViewModel: Активный профиль при инициализации: \(self.activeProfile?.name ?? "нет")")
+        print("MixViewModel: Профилей в ProfileManager при инициализации: \(ProfileManager.profiles.count)")
+        
         setupBindings()
+        
+        // Добавляем наблюдатель за изменением активного профиля в ProfileManager
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                
+                Task { @MainActor in
+                    self.activeProfile = ProfileManager.activeProfile
+                    print("MixViewModel: Активный профиль после изменения UserDefaults: \(self.activeProfile?.name ?? "нет")")
+                    await self.loadMixes()
+                }
+            }
+            .store(in: &cancellables)
+        
         Task {
             await loadMixes()
         }
@@ -56,14 +76,19 @@ class MixViewModel: NSObject, ObservableObject {
     
     @MainActor
     func loadMixes() async {
-        guard let activeProfile = ProfileManager.activeProfile else {
-            print("Нет активного профиля")
+        guard let activeProfile = self.activeProfile else {
+            print("MixViewModel: Нет активного профиля для загрузки миксов")
+            // Возможно, здесь стоит показать сообщение пользователю
+            self.readyMixes = []
+            self.developmentMixes = []
+            self.isLoading = false
             return
         }
+        print("MixViewModel: Загрузка миксов для активного профиля: \(activeProfile.name)")
         isLoading = true
         error = nil
         do {
-            let mixes = try await apiService.fetchMixes()
+            let mixes = try await apiService.fetchMixes(profileId: activeProfile.id)
             let filtered = mixes.filter { $0.profileId == activeProfile.id }
             self.readyMixes = filtered.filter { !$0.isInDevelopment }
             self.developmentMixes = filtered.filter { $0.isInDevelopment }
@@ -99,26 +124,31 @@ class MixViewModel: NSObject, ObservableObject {
         print("После фильтрации: готовых миксов: \(readyMixes.count), в разработке: \(developmentMixes.count)")
     }
     
+    @MainActor
     func saveMix(_ mix: Mix) async throws {
         do {
             try await apiService.saveMix(mix)
             await loadMixes()
         } catch {
             print("Ошибка сохранения микса: \(error)")
+            self.error = error.localizedDescription
             throw error
         }
     }
     
+    @MainActor
     func updateMix(_ mix: Mix) async throws {
         do {
             try await apiService.updateMix(mix)
             await loadMixes()
         } catch {
             print("Ошибка обновления микса: \(error)")
+            self.error = error.localizedDescription
             throw error
         }
     }
     
+    @MainActor
     func deleteMix(_ mix: Mix) {
         Task {
             do {
@@ -126,6 +156,7 @@ class MixViewModel: NSObject, ObservableObject {
                 await loadMixes()
             } catch {
                 print("Ошибка удаления микса: \(error)")
+                self.error = error.localizedDescription
             }
         }
     }
@@ -200,14 +231,16 @@ class MixViewModel: NSObject, ObservableObject {
         return text
     }
     
+    @MainActor
     func addMix() {
         guard let activeProfile = ProfileManager.activeProfile else {
             self.error = "Пожалуйста, создайте и выберите профиль перед созданием микса"
             return
         }
-        print("Добавление нового микса")
+        print("MixViewModel: Добавление нового микса для профиля: \(activeProfile.name) (ID: \(activeProfile.id))")
+        
         let newMix = Mix(
-            id: UUID(),
+            id: UUID().uuidString,
             profileId: activeProfile.id,
             name: "Новый микс",
             composition: "",
@@ -217,17 +250,21 @@ class MixViewModel: NSObject, ObservableObject {
             guestTags: [],
             isInDevelopment: true
         )
+        
+        print("MixViewModel: Создан новый микс: \(newMix.name) (ID: \(newMix.id)) для профиля: \(newMix.profileId)")
+        
         Task {
             do {
                 try await saveMix(newMix)
+                print("MixViewModel: Микс успешно сохранен")
             } catch {
-                print("Ошибка при добавлении микса: \(error)")
+                print("MixViewModel: Ошибка при добавлении микса: \(error)")
                 self.error = "Ошибка при добавлении микса: \(error.localizedDescription)"
             }
         }
     }
     
-    func getMixById(_ id: UUID) -> Mix? {
+    func getMixById(_ id: String) -> Mix? {
         if let mix = readyMixes.first(where: { $0.id == id }) {
             return mix
         }
